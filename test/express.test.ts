@@ -33,17 +33,21 @@ test('Falls back if error match does not exist', async () => {
 
 test('error response withMessageFromError takes error message', async () => {
     const handler = errorHandler(
-        handle(Error, respond.badRequest.withMessageFromError()),
+        handle(
+            TestError,
+            respond.badRequest.withErrorProperties('message', 'test'),
+        ),
     );
     const res = createResponse();
     res.send = jest.fn();
 
-    await handler(new Error('Custom message'), {} as any, res, () => {});
+    await handler(new TestError('Custom message'), {} as any, res, () => {});
 
     expect(res.send).toBeCalledWith({
         statusCode: 400,
         error: 'Bad Request',
         message: 'Custom message',
+        test: 'hello!',
     });
 });
 
@@ -80,8 +84,8 @@ test('error response withMessageFrom adds message from another property', async 
     const handler = errorHandler(
         handle(
             Error,
-            () => ({ anotherMessage: 'Another message' }),
-            respond.badRequest.withMessageFrom('anotherMessage'),
+            () => ({ message: 'Another message' }),
+            respond.badRequest.withProperties('message'),
         ),
     );
     const res = createResponse();

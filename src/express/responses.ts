@@ -1,54 +1,88 @@
 import { Request, Response } from 'express';
 
 const createRespond = (statusCode: number, error?: string): Respond => {
-    const sendResponse = (res: Response, message?: string) =>
+    const sendResponse = (res: Response, properties: object) =>
         res.status(statusCode).send({
             statusCode,
-            ...(message ? { message } : {}),
             ...(error ? { error } : {}),
+            ...properties,
         });
 
-    const respond: any = (res: Response | string, message?: string) => {
+    const respond: any = (
+        res: Response | string,
+        message?: any,
+        data?: any,
+    ) => {
         if (!res || typeof res === 'string') {
+            data = message;
             message = res;
             return (context: any, req: Request, res: Response) =>
-                sendResponse(res, message);
+                sendResponse(res, { message, ...data });
         } else {
-            sendResponse(res, message);
+            sendResponse(res, { message, ...data });
             return;
         }
     };
 
-    respond.withMessageFromError = () => (
-        context: any,
-        req: Request,
-        res: Response,
-    ) => sendResponse(res, context.error?.message);
+    const takeProperties = (properties: string[], objectWithProperties: any) =>
+        properties.reduce(
+            (object, property) => ({
+                ...object,
+                [property]: objectWithProperties[property],
+            }),
+            {},
+        );
 
-    respond.withMessageFrom = <Property extends string>(property: Property) => (
-        context: { [key in Property]: string },
+    respond.withErrorProperties = <Properties extends string[]>(
+        ...properties: Properties
+    ) => (
+        context: {
+            error: {
+                [key in Properties[number]]: string;
+            };
+        },
         req: Request,
         res: Response,
-    ) => sendResponse(res, context[property]);
+    ) => sendResponse(res, takeProperties(properties, context.error));
+
+    respond.withProperties = <Properties extends string[]>(
+        ...properties: Properties
+    ) => (
+        context: { [key in Properties[number]]: string },
+        req: Request,
+        res: Response,
+    ) => sendResponse(res, takeProperties(properties, context));
 
     return respond;
 };
 
 interface Respond {
-    (res: Response, message?: string): void;
+    (res: Response, message?: string, data?: any): void;
 
-    (message?: string): (context: any, req: Request, res: Response) => void;
-
-    withMessageFromError: () => (
+    (message?: string, data?: any): (
         context: any,
         req: Request,
         res: Response,
     ) => void;
 
-    withMessageFrom: <Property extends string>(
-        property: Property,
+    withErrorProperties: <Properties extends string[]>(
+        ...properties: Properties
     ) => (
-        context: { [key in Property]: string },
+        context: {
+            error: {
+                [key in Properties[number]]: any;
+            };
+        },
+        req: Request,
+        res: Response,
+    ) => void;
+
+    withProperties: <Properties extends string[]>(
+        ...properties: Properties
+    ) => (
+        context: {
+            [key in Properties[number]]: any;
+        },
         req: Request,
         res: Response,
     ) => void;
